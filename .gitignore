@@ -2,6 +2,7 @@
 bin-debug/
 bin-release/
 [Oo]bj/
+**/target/
 
 # Other files and folders
 .settings/
