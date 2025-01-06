@@ -1,10 +1,9 @@
 use std::path::Path;
-
 use datafusion::execution::context::SessionContext;
-use datafusion::parquet::file;
 use datafusion::prelude::{ParquetReadOptions, DataFrame, CsvReadOptions};
 use datafusion::error::Result;
-use datafusion::arrow::array::RecordBatch;
+use datafusion::arrow::datatypes::{DataType, Field, Schema};
+use datafusion::error::{DataFusionError};
 use crate::modules::utils;
 
 pub enum FileFormatOptions<'a> {
@@ -62,5 +61,27 @@ impl SADataFusion {
             }
         }
         Ok(())
+    }
+
+    fn convert_dtype(&self, type_str: &str) -> Result<DataType>{
+        match type_str.to_lowercase().as_str() {
+            "string" => Ok(DataType::Utf8),
+            "float" => Ok(DataType::Float64),
+            _ => Err(DataFusionError::Plan(format!("Unsupported data type: {}", type_str)))
+        }
+    }
+
+    pub async fn cast_all_columns(&self, file_path: &str, type_str: &str) -> Result<Schema> {
+        let parquet_options: ParquetReadOptions<'_> = ParquetReadOptions::default();
+        let string_schema: Schema = Schema::new(
+            self.client.read_parquet(file_path, parquet_options).await?.schema()
+            .fields()
+            .iter()
+            .map(|field| {
+                Field::new(field.name(), self.convert_dtype(type_str).unwrap(), field.is_nullable())
+            })
+            .collect::<Vec<_>>(),
+        );
+        Ok(string_schema)
     }
 }
