@@ -1,8 +1,7 @@
 use std::fs;
 use std::io::{self, Error, ErrorKind};
 use std::path::{Path, PathBuf};
-use std::ffi::OsStr;
-
+use crate::modules::utils;
 
 pub trait FileSystem {
     // Copies a file from `src` to `dest`.
@@ -34,29 +33,7 @@ pub trait FileSystem {
 pub struct LocalFileSystem;
 
 impl LocalFileSystem {
-    fn extract_path<P, F>(
-        &self,
-        path: P,
-        extract_path_fn: F,
-        mode: &str
-    ) -> io::Result<String>
-    where
-        P: AsRef<Path>,
-        F: Fn(&Path) -> Option<&OsStr>
-    {
-        let path_ref: &Path = path.as_ref();
-        match extract_path_fn(path_ref) {
-            Some(os_str) => os_str
-                .to_str()
-                .map(|s| s.to_string())
-                .ok_or_else(
-                    || {
-                        Error::new(ErrorKind::InvalidData, format!("Invalid UTF-8 in {}", mode),)
-                    }
-                ),
-            None => Err(Error::new(ErrorKind::InvalidData, format!("Path has no valid {}", mode)))
-        }
-    }
+    // Declare own methods
 }
 
 impl FileSystem for LocalFileSystem {
@@ -70,15 +47,15 @@ impl FileSystem for LocalFileSystem {
     }
 
     fn get_file_name<P: AsRef<Path>>(&self, path: P) -> io::Result<String> {
-        self.extract_path(path, Path::file_name, "file name")
+        utils::extract_path(path, Path::file_name, "file name")
     }
 
     fn get_file_stem<P: AsRef<Path>>(&self, path: P) -> io::Result<String> {
-        self.extract_path(path, Path::file_stem, "file stem")
+        utils::extract_path(path, Path::file_stem, "file stem")
     }
 
     fn get_file_extension<P: AsRef<Path>>(&self, path: P) -> io::Result<String> {
-        self.extract_path(path, Path::extension, "extension")
+        utils::extract_path(path, Path::extension, "extension")
     }
 
     fn join_path<S, I>(&self, paths: I) -> PathBuf
