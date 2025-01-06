@@ -1,4 +1,4 @@
-use std::path::{Path};
+use std::path::Path;
 use std::io::{self, Error, ErrorKind};
 use std::ffi::OsStr;
 

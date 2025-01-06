@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{self, Error, ErrorKind};
+use std::io;
 use std::path::{Path, PathBuf};
 use crate::modules::utils;
 
