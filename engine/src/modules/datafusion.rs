@@ -3,7 +3,9 @@ use datafusion::execution::context::SessionContext;
 use datafusion::prelude::{ParquetReadOptions, DataFrame, CsvReadOptions};
 use datafusion::error::Result;
 use datafusion::arrow::datatypes::{DataType, Field, Schema};
-use datafusion::error::{DataFusionError};
+use datafusion::error::DataFusionError;
+use datafusion::common::DFSchema;
+use std::error::Error;
 use crate::modules::utils;
 
 pub enum FileFormatOptions<'a> {
@@ -36,7 +38,7 @@ impl SADataFusion {
         Ok(df)
     }
 
-    pub async fn register_file(&self, file_path: &str, option: Option<FileFormatOptions<'_>>) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn register_file(&self, file_path: &str, option: Option<FileFormatOptions<'_>>) -> Result<(), Box<dyn Error>> {
         let file_extension: &str = &utils::extract_path(file_path, Path::extension, "extension")
             .unwrap()
             .to_lowercase();
