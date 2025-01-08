@@ -73,6 +73,16 @@ impl SADataFusion {
         }
     }
 
+    pub async fn get_schema_in_table(&self, table_name: &str) -> Result<(DFSchema), Box<dyn Error>> {
+        Ok(
+            self.client
+                .table(table_name)
+                .await?
+                .schema()
+                .clone()
+        )
+    }
+
     pub async fn cast_all_columns(&self, file_path: &str, type_str: &str) -> Result<Schema> {
         let file_extension: &str = &utils::extract_path(file_path, Path::extension, "extension")
             .unwrap()
@@ -90,6 +100,7 @@ impl SADataFusion {
                     .collect::<Vec<_>>(),
                 )
             },
+
             "csv" => {
                 Schema::new(
                     self.client.read_csv(file_path, CsvReadOptions::default()).await?.schema()
