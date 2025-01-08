@@ -6,7 +6,7 @@ use datafusion::arrow::datatypes::Schema;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sa_datafusion: SADataFusion = SADataFusion::new();
-    let parquet_path: &str = "src/bin/test_data/example_datafusion/house_price.parquet";
+    let parquet_path: &str = "src/bin/test_data/example_datafusion_1/house_price.parquet";
     let string_schema: Schema = sa_datafusion.cast_all_columns(parquet_path, &"String").await?;
     let read_options: ParquetReadOptions<'_> = ParquetReadOptions {
         schema: Some(&string_schema),

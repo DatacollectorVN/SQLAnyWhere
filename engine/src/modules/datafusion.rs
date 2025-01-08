@@ -59,7 +59,7 @@ impl SADataFusion {
                     .register_csv(file_name, file_path, target_option).await?;
             }
             _ => {
-                panic!("No file format options provided!");
+                panic!("[SADataFusion][register_file][Exception]: No file format options provided!");
             }
         }
         Ok(())
@@ -74,16 +74,35 @@ impl SADataFusion {
     }
 
     pub async fn cast_all_columns(&self, file_path: &str, type_str: &str) -> Result<Schema> {
-        let parquet_options: ParquetReadOptions<'_> = ParquetReadOptions::default();
-        let string_schema: Schema = Schema::new(
-            self.client.read_parquet(file_path, parquet_options).await?.schema()
-            .fields()
-            .iter()
-            .map(|field| {
-                Field::new(field.name(), self.convert_dtype(type_str).unwrap(), field.is_nullable())
-            })
-            .collect::<Vec<_>>(),
-        );
+        let file_extension: &str = &utils::extract_path(file_path, Path::extension, "extension")
+            .unwrap()
+            .to_lowercase();
+
+        let string_schema: Schema = match file_extension {
+            "parquet" => {
+                Schema::new(
+                    self.client.read_parquet(file_path, ParquetReadOptions::default()).await?.schema()
+                    .fields()
+                    .iter()
+                    .map(|field| {
+                        Field::new(field.name(), self.convert_dtype(type_str).unwrap(), field.is_nullable())
+                    })
+                    .collect::<Vec<_>>(),
+                )
+            },
+            "csv" => {
+                Schema::new(
+                    self.client.read_csv(file_path, CsvReadOptions::default()).await?.schema()
+                    .fields()
+                    .iter()
+                    .map(|field| {
+                        Field::new(field.name(), self.convert_dtype(type_str).unwrap(), field.is_nullable())
+                    })
+                    .collect::<Vec<_>>(),
+                )
+            },
+            _ => panic!("[SADataFusion][read_option][Exception]: No file format options provided!"),
+        };
         Ok(string_schema)
     }
 }
