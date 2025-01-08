@@ -14,7 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let student_schema_string: Schema = sa_datafusion.cast_all_columns(student_file_path, &"String").await?;
     let score_schema_string: Schema = sa_datafusion.cast_all_columns(score_file_path, &"String").await?;
 
-    sa_datafusion.register_file(
+    sa_datafusion.register(
         student_file_path,
         Some(
             FileFormatOptions::Csv(
@@ -26,7 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
     ).await?;
 
-    sa_datafusion.register_file(
+    sa_datafusion.register(
         score_file_path,
         Some(
             FileFormatOptions::Csv(

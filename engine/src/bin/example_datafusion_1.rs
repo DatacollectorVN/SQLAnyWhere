@@ -12,7 +12,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         schema: Some(&string_schema),
         ..ParquetReadOptions::default()
     };
-    sa_datafusion.register_file(parquet_path, Some(FileFormatOptions::Parquet(read_options))).await?;
+    sa_datafusion.register(parquet_path, Some(FileFormatOptions::Parquet(read_options))).await?;
 
     let df: DataFrame = sa_datafusion.execute_sql(r#"SELECT * FROM "house_price""#).await?;
     let schema: DFSchema = df.schema().clone();

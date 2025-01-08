@@ -8,11 +8,53 @@ use datafusion::common::DFSchema;
 use std::error::Error;
 use crate::modules::utils;
 
+
+pub trait Registerable {
+    type CustomOptions;
+    fn get_options<'a>(&self) -> Self::CustomOptions;
+    fn register(&self, client: &SessionContext, file_name: &str, file_path: &str) -> impl std::future::Future<Output = Result<()>> + Send;
+}
+
+impl<'a> Registerable for ParquetReadOptions<'a> {
+    type CustomOptions = ParquetReadOptions<'a>;
+
+    fn get_options(&self) -> Self::CustomOptions{
+        Some(self.clone()).unwrap_or_else(ParquetReadOptions::default)
+    }
+
+    async fn register(&self, client: &SessionContext, file_name: &str, file_path: &str) -> Result<()> {
+        client.register_parquet(file_name, file_path, self.get_options()).await
+    }
+}
+
+impl<'a> Registerable for CsvReadOptions<'a> {
+    type CustomOptions = CsvReadOptions<'a>;
+
+    fn get_options(&self) -> Self::CustomOptions{
+        Some(self.clone()).unwrap_or_else(CsvReadOptions::default)
+    }
+
+    async fn register(&self, client: &SessionContext, file_name: &str, file_path: &str) -> Result<()> {
+        client.register_csv(file_name, file_path, self.get_options()).await
+    }
+}
+
+impl<'a> FileFormatOptions<'a> {
+    pub async fn register(&self, client: &SessionContext, file_name: &str, file_path: &str) -> Result<()> {
+        match self {
+            FileFormatOptions::Parquet(options) => options.register(client, file_name, file_path).await,
+            FileFormatOptions::Csv(options) => options.register(client, file_name, file_path).await,
+        }
+    }
+}
+
+
 pub enum FileFormatOptions<'a> {
     Parquet(ParquetReadOptions<'a>),
     Csv(CsvReadOptions<'a>),
     // Extend with other formats as needed
 }
+
 
 pub struct SADataFusion {
     pub client: SessionContext,
@@ -25,44 +67,20 @@ impl SADataFusion {
         }
     }
 
-    fn get_parquet_option<'a>(&self, option: Option<ParquetReadOptions<'a>>) -> ParquetReadOptions<'a> {
-        option.unwrap_or_else(ParquetReadOptions::default)
-    }
-
-    fn get_csv_option<'a>(&self, option: Option<CsvReadOptions<'a>>) -> CsvReadOptions<'a> {
-        option.unwrap_or_else(CsvReadOptions::default)
-    }
-
     pub async fn execute_sql(&self, stm: &str) -> Result<DataFrame> {
         let df: DataFrame = self.client.sql(stm).await?;
         Ok(df)
     }
 
-    pub async fn register_file(&self, file_path: &str, option: Option<FileFormatOptions<'_>>) -> Result<(), Box<dyn Error>> {
-        let file_extension: &str = &utils::extract_path(file_path, Path::extension, "extension")
-            .unwrap()
-            .to_lowercase();
-
+    pub async fn register(&self, file_path: &str, options: Option<FileFormatOptions<'_>>) -> Result<()> {
         let file_name: &str = &utils::extract_path(file_path, Path::file_stem, "file stem")
             .unwrap()
             .to_lowercase();
 
-        match (option, file_extension) {
-            (Some(FileFormatOptions::Parquet(parquet_options)), "parquet") => {
-                let target_option: ParquetReadOptions<'_> = self.get_parquet_option(Some(parquet_options));
-                self.client
-                    .register_parquet(file_name, file_path, target_option).await?;
-            }
-            (Some(FileFormatOptions::Csv(csv_options)), "csv") => {
-                let target_option: CsvReadOptions<'_> = self.get_csv_option(Some(csv_options));
-                self.client
-                    .register_csv(file_name, file_path, target_option).await?;
-            }
-            _ => {
-                panic!("[SADataFusion][register_file][Exception]: No file format options provided!");
-            }
+        match options {
+            Some(file_format_options) => file_format_options.register(&self.client, file_name, file_path).await,
+            _ => panic!("[SADataFusion][register_file][Exception]: No file format options provided!")
         }
-        Ok(())
     }
 
     fn convert_dtype(&self, type_str: &str) -> Result<DataType>{
