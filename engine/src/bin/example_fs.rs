@@ -1,4 +1,4 @@
-use engine::sa_system::sa_local_system::SaLocalSystem;
+use engine::object_storage::sa_local_storage::SaLocalSystem;
 use std::path::PathBuf;
 use std::io::Error;
 fn main() {

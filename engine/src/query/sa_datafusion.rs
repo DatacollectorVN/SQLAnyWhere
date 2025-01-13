@@ -1,6 +1,4 @@
-pub mod sa_file_options;
-pub mod sa_file_format;
-use crate::sa_datafusion::sa_file_options::SaFileOptions;
+use crate::query::sa_file_options::SaFileOptions;
 use datafusion::execution::context::SessionContext;
 use datafusion::prelude::DataFrame;
 use datafusion::error::Result;
@@ -13,6 +11,7 @@ use std::error::Error;
 pub struct SaDataFusion {
     pub client: SessionContext,
 }
+
 
 impl SaDataFusion {
     pub fn new() -> Self {

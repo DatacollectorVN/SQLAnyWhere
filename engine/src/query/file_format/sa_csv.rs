@@ -1,6 +1,6 @@
 use datafusion::execution::context::SessionContext;
 use datafusion::error::Result;
-pub use crate::sa_datafusion::sa_file_format::SaFileRegister;
+pub use crate::query::file_format::sa_file_register::SaFileRegister;
 pub use datafusion::prelude::{DataFrame, CsvReadOptions};
 
 

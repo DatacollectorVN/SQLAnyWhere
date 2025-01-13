@@ -1,5 +1,3 @@
-pub mod sa_csv;
-pub mod sa_parquet;
 use datafusion::execution::context::SessionContext;
 use datafusion::error::Result;
 use datafusion::prelude::DataFrame;
