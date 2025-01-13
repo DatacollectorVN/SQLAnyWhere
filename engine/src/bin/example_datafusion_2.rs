@@ -1,6 +1,6 @@
 
-use engine::sa_datafusion::{
-    SaDataFusion,
+use engine::query::{
+    sa_datafusion::SaDataFusion,
     sa_file_options::SaFileOptions
 };
 use datafusion::prelude::{CsvReadOptions, DataFrame};

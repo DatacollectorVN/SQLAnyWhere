@@ -1,8 +1,8 @@
 use datafusion::{execution::context::SessionContext, prelude::DataFrame};
 use datafusion::error::DataFusionError;
 use std::path::Path;
-use crate::sa_datafusion::sa_file_format::{
-    SaFileRegister,
+use crate::query::file_format::{
+    sa_file_register::SaFileRegister,
     sa_csv::CsvReadOptions,
     sa_parquet::ParquetReadOptions,
 
