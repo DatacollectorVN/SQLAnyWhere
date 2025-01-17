@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-datafusion = "43.0.0"    # Check crates.io for the latest version
+datafusion = "44.0.0"    # Check crates.io for the latest version
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 clap = { version = "4.3", features = ["derive"] }
+tempfile = "3.3.0"
+async-trait = "0.1"
