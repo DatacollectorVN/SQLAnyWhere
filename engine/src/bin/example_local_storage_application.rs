@@ -1,6 +1,6 @@
 use engine::object_storage::local_storage::SaLocalStorage;
 use datafusion::common::Result;
-use engine::query::datafusion::SaDataFusion;
+use engine::datafusion::SaDataFusion;
 use datafusion::execution::SessionState;
 use std::sync::Arc;
 use datafusion::prelude::DataFrame;
