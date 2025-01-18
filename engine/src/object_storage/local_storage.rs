@@ -22,7 +22,9 @@ use datafusion::execution::context::SessionState;
 use datafusion::common::Result;
 use datafusion::arrow::datatypes::{
     Schema,
-    SchemaRef
+    SchemaRef,
+    Field,
+    DataType
 };
 use datafusion_expr::{
     TableType,
@@ -87,14 +89,34 @@ impl SaLocalStorage {
         Self::extract_path(path, Path::extension, "extension")
     }
 
-    pub async fn new(file_path: &str, session_state: &SessionState, file_format: Arc<dyn FileFormat>,) -> Result<Self> {
+    pub async fn new(file_path: &str, session_state: &SessionState, file_format: Arc<dyn FileFormat>, is_infer_scheama: Option<bool>) -> Result<Self> {
+        let is_infer_schema: bool = is_infer_scheama.unwrap_or(true);
         let file_url: String = format!("{}{}", Self::PREFIX_URL, file_path);
         let listing_options: ListingOptions = ListingOptions::new(file_format);
         let listing_table_url: ListingTableUrl = ListingTableUrl::parse(file_url.clone())?;
-        let infer_schema: Arc<Schema> = listing_options.infer_schema(session_state, &listing_table_url).await?;
+        let schema: Arc<Schema> = if is_infer_schema {
+            // Auto inference
+            listing_options
+                .infer_schema(session_state, &listing_table_url)
+                .await?
+        } else {
+            // Create a schema with all columns as DataType::Utf8 (string)
+            let inferred_schema = listing_options
+                .infer_schema(session_state, &listing_table_url)
+                .await?;
+
+            let fields_as_string: Vec<Field> = inferred_schema
+                .fields()
+                .iter()
+                .map(|field| Field::new(field.name(), DataType::Utf8, field.is_nullable()))
+                .collect();
+
+            Arc::new(Schema::new(fields_as_string))
+        };
+
         let listing_table_config: ListingTableConfig = ListingTableConfig::new(listing_table_url)
             .with_listing_options(listing_options)
-            .with_schema(infer_schema);
+            .with_schema(schema);
 
         let table_provider: Arc<ListingTable> = Arc::new(ListingTable::try_new(listing_table_config)?);
         let table_name: String = Self::get_file_stem(file_path).unwrap();

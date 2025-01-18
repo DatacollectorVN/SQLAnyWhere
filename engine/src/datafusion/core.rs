@@ -5,7 +5,6 @@ use std::sync::Arc;
 use datafusion::common::DFSchema;
 use crate::object_storage::storage::SaStorage;
 use datafusion::execution::SessionState;
-use std::error::Error;
 
 
 pub struct SaDataFusion {
@@ -21,6 +20,7 @@ impl SaDataFusion {
     pub fn get_session_state(&self) -> SessionState {
         self.ctx.state()
     }
+
     pub async fn execute_sql(&self, stm: &str) -> Result<DataFrame> {
         self.ctx.sql(stm).await
     }
@@ -30,7 +30,7 @@ impl SaDataFusion {
         Ok(())
     }
 
-    pub async fn get_schema_in_table(&self, table_name: &str) -> Result<DFSchema, Box<dyn Error>> {
+    pub async fn get_schema(&self, table_name: &str) -> Result<DFSchema> {
         Ok(
             self.ctx
                 .table(table_name)
@@ -38,5 +38,12 @@ impl SaDataFusion {
                 .schema()
                 .clone()
         )
+    }
+
+    pub async fn display_schema(&self, table_name: &str) -> Result<()> {
+        for field in self.get_schema(table_name).await?.fields() {
+            println!("{} - {}", field.name(), field.data_type())
+        }
+        Ok(())
     }
 }
