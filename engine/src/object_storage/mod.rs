@@ -1,1 +1,2 @@
-pub mod sa_local_storage;
+pub mod local_storage;
+pub mod storage;
