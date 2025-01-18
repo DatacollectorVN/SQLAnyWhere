@@ -10,8 +10,8 @@ use datafusion::datasource::file_format::csv::CsvFormat;
 #[tokio::main]
 async fn main() -> Result<()> {
     let base_path: &str = env!("CARGO_MANIFEST_DIR");
-    let score_path: String = format!("{}/{}", base_path, "src/bin/test_data/example_local_storage_application/scores.csv");
-    let student_path: String = format!("{}/{}", base_path, "src/bin/test_data/example_local_storage_application/students.csv");
+    let score_path: String = format!("{}/{}", base_path, ".data/bin/ex_local_storage_application/scores.csv");
+    let student_path: String = format!("{}/{}", base_path, ".data/bin/ex_local_storage_application/students.csv");
     let sa_datafusion: SaDataFusion = SaDataFusion::new();
     let session_state: SessionState = sa_datafusion.get_session_state();
 
