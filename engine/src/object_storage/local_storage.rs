@@ -32,18 +32,31 @@ use datafusion_expr::{
 };
 use datafusion::physical_plan::ExecutionPlan;
 use crate::object_storage::storage::SaStorage;
+use crate::datafusion::SaDataFusion;
+use object_store::ObjectStore;
 
 
 #[derive(Debug)]
 pub struct SaLocalStorage {
     file_url: String,
-    table_provider: Arc<dyn TableProvider>,
+    table_provider: Option<Arc<dyn TableProvider>>,
     table_name: String
 }
 
+impl Default for SaLocalStorage {
+    fn default() -> Self {
+        SaLocalStorage {
+            file_url: String::new(),
+            table_provider: None,
+            table_name: String::new()
+        }
+    }
+}
+
+
 
 impl SaLocalStorage {
-    const PREFIX_URL: &str = "file://";
+    const PROTOCAL: &str = "file";
 
     fn extract_path<P, F>(
         path: P,
@@ -77,6 +90,10 @@ impl SaLocalStorage {
         fs::remove_file(src)
     }
 
+    pub fn delete_file<P: AsRef<Path>>(path: P) -> io::Result<()> {
+        fs::remove_file(path)
+    }
+
     pub fn get_file_name<P: AsRef<Path>>(path: P) -> io::Result<String> {
         Self::extract_path(path, Path::file_name, "file name")
     }
@@ -89,20 +106,30 @@ impl SaLocalStorage {
         Self::extract_path(path, Path::extension, "extension")
     }
 
-    pub async fn new(file_path: &str, session_state: &SessionState, file_format: Arc<dyn FileFormat>, is_infer_scheama: Option<bool>) -> Result<Self> {
-        let is_infer_schema: bool = is_infer_scheama.unwrap_or(true);
-        let file_url: String = format!("{}{}", Self::PREFIX_URL, file_path);
+    pub fn new(file_path: &str) -> Self {
+        let table_name: String = Self::get_file_stem(file_path).unwrap();
+        let file_url: String = format!("{}://{}", Self::PROTOCAL, file_path);
+
+        Self {
+            file_url: file_url,
+            table_name: table_name,
+            ..Default::default()
+        }
+    }
+
+    pub async fn init_table_provider(mut self, sa_dafusion: &SaDataFusion, file_format: Arc<dyn FileFormat>, is_infer_schema: Option<bool>) -> Result<Self> {
+        let is_infer_schema: bool = is_infer_schema.unwrap_or(true);
         let listing_options: ListingOptions = ListingOptions::new(file_format);
-        let listing_table_url: ListingTableUrl = ListingTableUrl::parse(file_url.clone())?;
+        let listing_table_url: ListingTableUrl = ListingTableUrl::parse(self.file_url.clone())?;
         let schema: Arc<Schema> = if is_infer_schema {
             // Auto inference
             listing_options
-                .infer_schema(session_state, &listing_table_url)
+                .infer_schema(&sa_dafusion.get_session_state(), &listing_table_url)
                 .await?
         } else {
             // Create a schema with all columns as DataType::Utf8 (string)
             let inferred_schema = listing_options
-                .infer_schema(session_state, &listing_table_url)
+                .infer_schema(&sa_dafusion.get_session_state(), &listing_table_url)
                 .await?;
 
             let fields_as_string: Vec<Field> = inferred_schema
@@ -119,15 +146,15 @@ impl SaLocalStorage {
             .with_schema(schema);
 
         let table_provider: Arc<ListingTable> = Arc::new(ListingTable::try_new(listing_table_config)?);
-        let table_name: String = Self::get_file_stem(file_path).unwrap();
-        Ok(Self{file_url, table_provider, table_name})
+        self.table_provider = Some(table_provider);
+        Ok(self)
     }
 }
 
 
 impl SaStorage for SaLocalStorage {
     fn get_table_provider(&self) -> Arc<dyn TableProvider> {
-        self.table_provider.clone()
+        self.table_provider.clone().unwrap()
     }
 
     fn get_file_url(&self) -> String {
@@ -136,6 +163,14 @@ impl SaStorage for SaLocalStorage {
 
     fn get_table_name(&self) -> String {
         self.table_name.clone()
+    }
+
+    fn get_protocal(&self) -> String {
+        Self::PROTOCAL.to_string()
+    }
+
+    fn get_object_store(&self) -> Option<Arc<dyn ObjectStore>> {
+        None
     }
 }
 
@@ -148,12 +183,12 @@ impl TableProvider for SaLocalStorage {
 
     /// Returns the schema of the table
     fn schema(&self) -> SchemaRef {
-        self.table_provider.schema()
+        self.table_provider.clone().unwrap().schema()
     }
 
     /// Returns the type of the table (e.g., Base or View)
     fn table_type(&self) -> TableType {
-        self.table_provider.table_type()
+        self.table_provider.clone().unwrap().table_type()
     }
 
     /// Creates a logical plan for scanning the table
@@ -164,7 +199,7 @@ impl TableProvider for SaLocalStorage {
         filters: &[Expr],
         limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        self.table_provider.scan(state, projection, filters, limit).await
+        self.table_provider.clone().unwrap().scan(state, projection, filters, limit).await
     }
 }
 
