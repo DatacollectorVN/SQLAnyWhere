@@ -1,9 +1,7 @@
 use std::any::Any;
 use std::sync::Arc;
 use async_trait::async_trait;
-use std::path::Path;
-use std::io;
-use std::fs;
+use url::Url;
 use datafusion::catalog::Session;
 use datafusion::datasource::TableProvider;
 use datafusion::datasource::listing::{
@@ -25,81 +23,92 @@ use datafusion_expr::{
     Expr
 };
 use datafusion::physical_plan::ExecutionPlan;
+use object_store::aws::{AmazonS3Builder, AmazonS3};
+use object_store::ObjectStore;
 use crate::object_storage::storage::SaStorage;
 use crate::datafusion::SaDataFusion;
-use crate::object_storage::utils;
-use object_store::ObjectStore;
 
 
 #[derive(Debug, Clone)]
-pub struct SaLocalStorage {
+pub struct SaS3 {
+    s3_bucket: String,
+    s3_src_key: String,
+    s3_file: String,
     file_url: String,
     table_provider: Option<Arc<dyn TableProvider>>,
+    object_store: Option<Arc<dyn ObjectStore>>
 }
 
 
-impl Default for SaLocalStorage {
+impl Default for SaS3 {
     fn default() -> Self {
-        SaLocalStorage {
+        SaS3 {
+            s3_bucket: String::new(),
+            s3_src_key: String::new(),
+            s3_file: String::new(),
             file_url: String::new(),
             table_provider: None,
+            object_store: None
         }
     }
 }
 
 
-impl SaLocalStorage {
-    const PROTOCAL: &str = "file";
+impl SaS3 {
+    pub const PROTOCAL: &str = "s3";
 
-    pub fn copy_file<P: AsRef<Path>>(src: P, dest: P) -> io::Result<u64> {
-        fs::copy(src, dest)
+    pub fn get_s3_src_key(&self) -> String {
+        self.s3_src_key.clone()
     }
 
-    pub fn move_file<P: AsRef<Path>>(src: P, dest: P) -> io::Result<()> {
-        fs::copy(&src, &dest)?;
-        fs::remove_file(src)
+    pub fn get_s3_file(&self) -> String {
+        self.s3_file.clone()
     }
 
-    pub fn delete_file<P: AsRef<Path>>(path: P) -> io::Result<()> {
-        fs::remove_file(path)
-    }
-
-    pub fn get_file_name<P: AsRef<Path>>(path: P) -> io::Result<String> {
-        utils::extract_path(path, Path::file_name, "file name")
-    }
-
-    pub fn get_file_stem<P: AsRef<Path>>(path: P) -> io::Result<String> {
-        utils::extract_path(path, Path::file_stem, "file stem")
-    }
-
-    pub fn get_file_extension<P: AsRef<Path>>(path: P) -> io::Result<String> {
-        utils::extract_path(path, Path::extension, "extension")
-    }
-
-    pub fn new(file_path: &str) -> Self {
-        let file_url: String = format!("{}://{}", Self::PROTOCAL, file_path);
+    pub fn new(
+        s3_bucket: &str,
+        s3_src_key: &str,
+        s3_file: &str
+    ) -> Self {
+        let file_url: String = format!("{}://{}/{}/{}", Self::PROTOCAL, s3_bucket, s3_src_key, s3_file);
 
         Self {
-            file_url: file_url,
+            s3_bucket: s3_bucket.to_string(),
+            s3_src_key: s3_src_key.to_string(),
+            s3_file: s3_file.to_string(),
+            file_url,
             ..Default::default()
         }
     }
 
-    pub async fn init_table_provider(mut self, sa_dafusion: &SaDataFusion, file_format: Arc<dyn FileFormat>, is_infer_schema: Option<bool>) -> Result<Self> {
-        let is_infer_schema: bool = is_infer_schema.unwrap_or(true);
-        let listing_options: ListingOptions = ListingOptions::new(file_format);
+    pub async fn init_table_provider(
+        mut self,
+        s3_region: &str,
+        sa_datafusion: &SaDataFusion,
+        file_format: Arc<dyn FileFormat>,
+        infer_schema: Option<bool>,
+    ) -> Result<Self>  {
+        let is_infer_schema: bool = infer_schema.unwrap_or(true);
+        let s3: AmazonS3 = AmazonS3Builder::from_env() // extract credential inforation by OS env
+            .with_region(s3_region) // Replace with your AWS region
+            .with_bucket_name(self.s3_bucket.clone()) // Replace with your bucket name
+            .build()?;
+
+        let object_store: Arc<dyn ObjectStore> = Arc::new(s3);
+        sa_datafusion.register_object_store(&Url::parse(&self.file_url).unwrap(), object_store);
         let listing_table_url: ListingTableUrl = ListingTableUrl::parse(self.file_url.clone())?;
+        let listing_options: ListingOptions = ListingOptions::new(file_format);
+
         let schema: Arc<Schema> = if is_infer_schema {
             // Auto inference
             listing_options
-                .infer_schema(&sa_dafusion.get_session_state(), &listing_table_url)
+                .infer_schema(&sa_datafusion.get_session_state(), &listing_table_url)
                 .await?
         } else {
             // Create a schema with all columns as DataType::Utf8 (string)
             let inferred_schema = listing_options
-                .infer_schema(&sa_dafusion.get_session_state(), &listing_table_url)
+                .infer_schema(&sa_datafusion.get_session_state(), &listing_table_url)
                 .await?;
-
             let fields_as_string: Vec<Field> = inferred_schema
                 .fields()
                 .iter()
@@ -112,7 +121,6 @@ impl SaLocalStorage {
         let listing_table_config: ListingTableConfig = ListingTableConfig::new(listing_table_url)
             .with_listing_options(listing_options)
             .with_schema(schema);
-
         let table_provider: Arc<ListingTable> = Arc::new(ListingTable::try_new(listing_table_config)?);
         self.table_provider = Some(table_provider);
         Ok(self)
@@ -120,7 +128,7 @@ impl SaLocalStorage {
 }
 
 
-impl SaStorage for SaLocalStorage {
+impl SaStorage for SaS3 {
     fn get_table_provider(&self) -> Arc<dyn TableProvider> {
         self.table_provider.clone().unwrap()
     }
@@ -133,14 +141,14 @@ impl SaStorage for SaLocalStorage {
         Self::PROTOCAL.to_string()
     }
 
-    fn get_object_store(&self) -> Option<Arc<dyn ObjectStore>> {
-        None
+    fn get_object_store(&self) -> Option<Arc<dyn ObjectStore>>{
+        Some(self.object_store.clone().unwrap())
     }
 }
 
 
 #[async_trait]
-impl TableProvider for SaLocalStorage {
+impl TableProvider for SaS3 {
     fn as_any(&self) -> &dyn Any {
         &self.table_provider
     }
@@ -166,4 +174,3 @@ impl TableProvider for SaLocalStorage {
         self.table_provider.clone().unwrap().scan(state, projection, filters, limit).await
     }
 }
-

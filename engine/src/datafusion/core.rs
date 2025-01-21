@@ -1,10 +1,12 @@
 use datafusion::execution::context::SessionContext;
 use datafusion::prelude::DataFrame;
 use datafusion::error::Result;
+use object_store::ObjectStore;
 use std::sync::Arc;
 use datafusion::common::DFSchema;
 use crate::object_storage::storage::SaStorage;
 use datafusion::execution::SessionState;
+use url::Url;
 
 
 pub struct SaDataFusion {
@@ -21,13 +23,19 @@ impl SaDataFusion {
         self.ctx.state()
     }
 
-    pub async fn execute_sql(&self, stm: &str) -> Result<DataFrame> {
+    pub async fn execute_sql(&self, stm:&str ) -> Result<DataFrame> {
         self.ctx.sql(stm).await
     }
 
-    pub async fn register_storage(&self, sa_object: Arc<dyn SaStorage>) -> Result<()>{
-        self.ctx.register_table(sa_object.get_table_name(), sa_object.get_table_provider())?;
+
+    pub fn register_object_store(&self, url: &Url, object_store: Arc<dyn ObjectStore>) {
+        self.ctx.runtime_env().register_object_store(url, object_store);
+    }
+
+    pub async fn register_sa_storage(&self, sa_storage: Arc<dyn SaStorage>) -> Result<()>{
+        self.ctx.register_table(sa_storage.get_file_url(), sa_storage.get_table_provider())?;
         Ok(())
+
     }
 
     pub async fn get_schema(&self, table_name: &str) -> Result<DFSchema> {

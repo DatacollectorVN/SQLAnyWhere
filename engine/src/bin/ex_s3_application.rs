@@ -1,5 +1,5 @@
 use engine::object_storage::storage::SaStorage;
-use engine::object_storage::SaLocalStorage;
+use engine::object_storage::{SaS3, SaLocalStorage};
 use datafusion::common::Result;
 use engine::datafusion::SaDataFusion;
 use std::sync::Arc;
@@ -9,12 +9,27 @@ use datafusion::datasource::file_format::csv::CsvFormat;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let base_path: &str = env!("CARGO_MANIFEST_DIR");
-    let score_path: String = format!("{}/{}", base_path, ".data/bin/ex-local-storage-application/scores.csv");
-    let student_path: String = format!("{}/{}", base_path, ".data/bin/ex-local-storage-application/students.csv");
+    let s3_bucket: &str = "sql-anywhere";
+    let s3_src_key: &str = "ex-s3-application";
+    let s3_file: &str = "students.csv";
+    let s3_region: &str = "us-east-1";
+
     let sa_datafusion: SaDataFusion = SaDataFusion::new();
 
-    println!("Initializing and registering scores.csv into SQLAnyWhere...");
+    let student_storage: SaS3 = SaS3::new(s3_bucket, s3_src_key, s3_file)
+        .init_table_provider(
+            s3_region,
+            &sa_datafusion,
+            Arc::new(CsvFormat::default()),
+            Some(false)
+        ).await?;
+    sa_datafusion.register_sa_storage(Arc::new(student_storage.clone())).await?;
+    println!("Students schema:");
+    sa_datafusion.display_schema(student_storage.get_file_url().as_str()).await?;
+    println!();
+
+    let base_path: &str = env!("CARGO_MANIFEST_DIR");
+    let score_path: String = format!("{}/{}", base_path, ".data/bin/ex-s3-application/scores.csv");
     let score_storage: SaLocalStorage = SaLocalStorage::new(&score_path)
         .init_table_provider(
             &sa_datafusion,
@@ -23,19 +38,7 @@ async fn main() -> Result<()> {
         ).await?;
     sa_datafusion.register_sa_storage(Arc::new(score_storage.clone())).await?;
     println!("Score schema:");
-    sa_datafusion.display_schema(&score_storage.get_file_url().as_str()).await?;
-    println!();
-
-    println!("Initializing and registering student.csv into SQLAnyWhere...");
-    let student_storage: SaLocalStorage = SaLocalStorage::new(&student_path)
-        .init_table_provider(
-            &sa_datafusion,
-            Arc::new(CsvFormat::default()),
-            Some(false)
-        ).await?;
-    sa_datafusion.register_sa_storage(Arc::new(student_storage.clone())).await?;
-    println!("Student schema:");
-    sa_datafusion.display_schema(&student_storage.get_file_url().as_str()).await?;
+    sa_datafusion.display_schema(score_storage.get_file_url().as_str()).await?;
     println!();
 
     println!("Joining and showing scores and students...");
@@ -54,7 +57,7 @@ async fn main() -> Result<()> {
                 st.id = s.student_id
         "#, student_storage.get_file_url(), score_storage.get_file_url());
     println!("{}", stm);
-    let df: DataFrame = sa_datafusion.execute_sql(&stm.as_str()).await?;
+    let df: DataFrame = sa_datafusion.execute_sql(&stm.to_string()).await?;
     df.show().await?;
     Ok(())
 }
