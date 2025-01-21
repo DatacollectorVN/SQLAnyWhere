@@ -1,6 +1,11 @@
 use std::path::Path;
-use std::io::{self, Error, ErrorKind};
+use std::io::{
+    self,
+    Error,
+    ErrorKind
+};
 use std::ffi::OsStr;
+
 
 pub fn extract_path<P, F>(
     path: P,
