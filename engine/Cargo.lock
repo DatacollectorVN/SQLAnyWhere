@@ -1243,6 +1243,7 @@ dependencies = [
  "datafusion",
  "datafusion-expr",
  "object_store",
+ "regex",
  "tempfile",
  "tokio",
  "url",

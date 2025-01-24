@@ -35,7 +35,6 @@ impl SaDataFusion {
     pub async fn register_sa_storage(&self, sa_storage: Arc<dyn SaStorage>) -> Result<()>{
         self.ctx.register_table(sa_storage.get_file_url(), sa_storage.get_table_provider())?;
         Ok(())
-
     }
 
     pub async fn get_schema(&self, table_name: &str) -> Result<DFSchema> {

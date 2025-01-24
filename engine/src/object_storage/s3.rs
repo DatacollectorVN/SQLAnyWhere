@@ -25,6 +25,7 @@ use datafusion_expr::{
 use datafusion::physical_plan::ExecutionPlan;
 use object_store::aws::{AmazonS3Builder, AmazonS3};
 use object_store::ObjectStore;
+use regex::Regex;
 use crate::object_storage::storage::SaStorage;
 use crate::datafusion::SaDataFusion;
 
@@ -65,6 +66,10 @@ impl SaS3 {
         self.s3_file.clone()
     }
 
+    pub fn get_s3_bucket(&self) -> String {
+        self.s3_bucket.clone()
+    }
+
     pub fn new(
         s3_bucket: &str,
         s3_src_key: &str,
@@ -79,6 +84,32 @@ impl SaS3 {
             file_url,
             ..Default::default()
         }
+    }
+
+    pub fn new_from_s3_uri(s3_uri: &str) -> Self {
+        let pattern: &str = r"s3://([^/]+)/(.+)/([^/]+)$";
+        let re: Regex = Regex::new(pattern).unwrap();
+
+        match re.captures(s3_uri) {
+            Some(captures) => {
+                let default_value: &str = "";
+                let s3_bucket: &str = captures.get(1).map_or(default_value, |m| m.as_str());
+                let s3_src_key: &str = captures.get(2).map_or(default_value, |m| m.as_str());
+                let s3_file: &str = captures.get(3).map_or(default_value, |m| m.as_str());
+                Self {
+                    s3_bucket: s3_bucket.to_string(),
+                    s3_src_key: s3_src_key.to_string(),
+                    s3_file: s3_file.to_string(),
+                    file_url: s3_uri.to_string(),
+                    ..Default::default()
+                }
+            },
+            _ => {
+                panic!("[new_from_s3_uri][Exception]: Could not parse the S3 URI: {}", s3_uri);
+            }
+        }
+
+
     }
 
     pub async fn init_table_provider(

@@ -11,4 +11,5 @@ clap = { version = "4.3", features = ["derive"] }
 tempfile = "3.3.0"
 async-trait = "0.1"
 object_store = { version = "0.11.2", features=["aws"] }
+regex = "1.11.1"
 url = "2.3.1"
