@@ -29,7 +29,7 @@ async fn main() -> Result<()> {
     println!();
 
     let base_path: &str = env!("CARGO_MANIFEST_DIR");
-    let score_path: String = format!("{}/{}", base_path, ".data/bin/ex-s3-application/scores.csv");
+    let score_path: String = format!("{}/{}", base_path, ".data/bin/ex-s3-application_v1/scores.csv");
     let score_storage: SaLocalStorage = SaLocalStorage::new(&score_path)
         .init_table_provider(
             &sa_datafusion,

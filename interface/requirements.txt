@@ -1,0 +1,3 @@
+https://github.com/DatacollectorVN/SQLAnyWhere/releases/download/PyV1.0.6/py_lib-0.1.0-cp312-cp312-macosx_11_0_arm64.whl
+pandas==2.2.3
+pyarrow==19.0.0

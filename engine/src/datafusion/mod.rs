@@ -1,2 +1,2 @@
-pub mod core;
-pub use core::SaDataFusion;
+pub mod datafusion;
+pub use datafusion::SaDataFusion;
