@@ -108,8 +108,6 @@ impl SaS3 {
                 panic!("[new_from_s3_uri][Exception]: Could not parse the S3 URI: {}", s3_uri);
             }
         }
-
-
     }
 
     pub async fn init_table_provider(

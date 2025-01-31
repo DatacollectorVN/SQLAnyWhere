@@ -1,0 +1,17 @@
+[package]
+name = "py_lib"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pyo3 = { version = "0.18", features = ["extension-module"] }
+pyo3-asyncio = { version = "0.18", features = ["tokio-runtime"] }
+arrow = "54.0.0"
+arrow-array = "54.0.0"
+futures = "0.3"
+
+engine = {path = "../"}
+
+[lib]
+name = "sa_rust"
+crate-type = ["cdylib"]

@@ -9,6 +9,7 @@ use datafusion::execution::SessionState;
 use url::Url;
 
 
+#[derive(Clone)]
 pub struct SaDataFusion {
     pub ctx: SessionContext,
 }
@@ -26,7 +27,6 @@ impl SaDataFusion {
     pub async fn execute_sql(&self, stm:&str ) -> Result<DataFrame> {
         self.ctx.sql(stm).await
     }
-
 
     pub fn register_object_store(&self, url: &Url, object_store: Arc<dyn ObjectStore>) {
         self.ctx.runtime_env().register_object_store(url, object_store);
