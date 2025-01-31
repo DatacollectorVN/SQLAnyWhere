@@ -85,19 +85,26 @@ impl SaLocalStorage {
         }
     }
 
-    pub async fn init_table_provider(mut self, sa_dafusion: &SaDataFusion, file_format: Arc<dyn FileFormat>, is_infer_schema: Option<bool>) -> Result<Self> {
+    pub fn new_with_file_uri(file_uri: &str) -> Self {
+        Self {
+            file_url: file_uri.to_string(),
+            ..Default::default()
+        }
+    }
+
+    pub async fn init_table_provider(mut self, sa_datafusion: &SaDataFusion, file_format: Arc<dyn FileFormat>, is_infer_schema: Option<bool>) -> Result<Self> {
         let is_infer_schema: bool = is_infer_schema.unwrap_or(true);
         let listing_options: ListingOptions = ListingOptions::new(file_format);
         let listing_table_url: ListingTableUrl = ListingTableUrl::parse(self.file_url.clone())?;
         let schema: Arc<Schema> = if is_infer_schema {
             // Auto inference
             listing_options
-                .infer_schema(&sa_dafusion.get_session_state(), &listing_table_url)
+                .infer_schema(&sa_datafusion.get_session_state(), &listing_table_url)
                 .await?
         } else {
             // Create a schema with all columns as DataType::Utf8 (string)
             let inferred_schema = listing_options
-                .infer_schema(&sa_dafusion.get_session_state(), &listing_table_url)
+                .infer_schema(&sa_datafusion.get_session_state(), &listing_table_url)
                 .await?;
 
             let fields_as_string: Vec<Field> = inferred_schema
